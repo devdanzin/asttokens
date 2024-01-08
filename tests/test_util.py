@@ -4,6 +4,7 @@ from __future__ import unicode_literals, print_function
 import ast
 import io
 import sys
+import textwrap
 import token
 import unittest
 
@@ -26,7 +27,6 @@ class TestUtil(unittest.TestCase):
     #     nosetests -i print_timing -s tests.test_util
     #
     import timeit
-    import textwrap
     setup = textwrap.dedent(
       '''
       import ast, asttokens
@@ -159,6 +159,41 @@ if six.PY3:
       TokenInfo(NAME, string='℘·2', start=(1, 0), end=(1, 3), line='℘·2=1'),
     ]
 
+
+  def test_get_trailing_comments():
+    code = textwrap.dedent('''
+    import foo  # Inline comment
+
+
+    class Class(foo.Nothing):
+        """Class doc."""
+
+        def method(self, thing):
+            """Method doc."""
+            print(thing)
+            # Line comment
+            self.thing = thing
+            # Trailing method comment
+        # Trailing Class comment
+
+    # Module comment
+
+    def function(parameter):
+        return parameter
+        # Trailing function comment
+    ''')
+    atok = asttokens.ASTTokens(code, parse=True)
+    names = ("Class", "method", "function")
+    for i, name in enumerate(names):
+      for node in asttokens.util.walk(atok.tree):
+        if hasattr(node, "name") and node.name == name:
+          break
+      segment = atok.get_text(node)
+      trailing = asttokens.util.get_trailing_comments(atok, node)
+      assert trailing not in segment
+      assert f"# Trailing {name} comment" in trailing
+      assert f"# Module comment" not in trailing, f"Name: {name}, names[i -1]: {names[i - 1]}, trailing: {trailing}"
+      assert (segment + trailing) in code
 
 if __name__ == "__main__":
   unittest.main()

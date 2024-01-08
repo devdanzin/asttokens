@@ -28,6 +28,8 @@ from six import iteritems
 if TYPE_CHECKING:  # pragma: no cover
   from .astroid_compat import NodeNG
 
+  from asttokens import ASTTokens
+
   # Type class used to expand out the definition of AST to include fields added by this library
   # It's not actually used for anything other than type checking though!
   class EnhancedAST(AST):
@@ -411,6 +413,41 @@ def last_stmt(node):
   if child_stmts:
     return last_stmt(child_stmts[-1])
   return node
+
+def get_trailing_comments(atok, node):
+  # type: (ASTTokens, AstNode) -> str
+  """Get any trailing comments for a node from an ASTTokens instance."""
+  first = next(atok.get_tokens(node, True))
+  # Real indent + 1, so comments on same level as node are skipped
+  indent = len(first.line) - len(first.line.lstrip()) + 1
+
+  comments_and_newlines = (tokenize.COMMENT, tokenize.NL, tokenize.NEWLINE)
+  token = list(atok.get_tokens(node, True))[-1]  # Last token for the node
+  while token.type != tokenize.ENDMARKER:
+    try:
+      next_token = atok.next_token(token, include_extra=True)
+      # Stop processing if we find something that isn't a comment/newline
+      if next_token.type not in comments_and_newlines:
+        break
+      # Stop if the comment found is less indented than the node's first line
+      elif "#" in next_token.line and next_token.line.index("#") < indent:
+        break
+      token = next_token
+    except IndexError:
+      break
+  comment = token
+
+  # Retrieve source code without trailing comments
+  source_segment = atok.get_text(node, False)
+  len_source = len(source_segment)
+
+  trailing = ""
+  # Recover content of trailing comments if any
+  if len_source <= comment.startpos:
+    # Expects that the source segment is unique in the code
+    index = atok.text.index(source_segment)
+    trailing = atok.text[index + len_source: comment.endpos]
+  return trailing
 
 
 if sys.version_info[:2] >= (3, 8):
