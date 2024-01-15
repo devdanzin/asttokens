@@ -183,8 +183,7 @@ if six.PY3:
         # Trailing function comment
     ''')
     atok = asttokens.ASTTokens(code, parse=True)
-    names = ("Class", "method", "function")
-    for i, name in enumerate(names):
+    for name in ("Class", "method", "function"):
       for node in asttokens.util.walk(atok.tree):
         if hasattr(node, "name") and node.name == name:
           break
@@ -192,7 +191,7 @@ if six.PY3:
       trailing = asttokens.util.get_trailing_comments(atok, node)
       assert trailing not in segment
       assert f"# Trailing {name} comment" in trailing
-      assert f"# Module comment" not in trailing, f"Name: {name}, names[i -1]: {names[i - 1]}, trailing: {trailing}"
+      assert f"# Module comment" not in trailing, f"Name: {name}, trailing: {trailing}"
       assert (segment + trailing) in code
 
 if __name__ == "__main__":
